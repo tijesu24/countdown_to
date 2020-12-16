@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:numberpicker/numberpicker.dart';
+import 'package:date_time_picker/date_time_picker.dart';
 
 import 'package:flutter/material.dart';
 
@@ -55,10 +56,15 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   Timer _timer;
   int pickerValue = 50;
-  int timerInitial;
+  int timerInitial = 0;
   int endValue = 0;
-  int timerCurrDurationSec;
+  int timerCurrDurationSec = 0;
   bool isTimerActive = false;
+  String errorMessage = '';
+
+  final dateInPastErrorMSG = "The Date and Time is in the past";
+
+  TextEditingController dateCtl = TextEditingController();
 
   @override
   void dispose() {
@@ -74,10 +80,11 @@ class _MyHomePageState extends State<MyHomePage> {
         _timer.cancel();
       }
     }
+
     isTimerActive = true;
     // So as to show initial value
     setState(() {
-      timerCurrDurationSec = pickerValue;
+      timerCurrDurationSec = 0;
       timerInitial = pickerValue;
     });
 
@@ -95,6 +102,14 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
+  stopTimer() {}
+
+  @override
+  void initState() {
+    super.initState();
+    dateCtl.text = DateTime.now().toIso8601String();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -106,32 +121,97 @@ class _MyHomePageState extends State<MyHomePage> {
       body: Center(
         // Center is a layout widget. It takes a single child and positions it
         // in the middle of the parent.
-        child: Column(
-          children: <Widget>[
-            NumberPicker.integer(
-              initialValue: 50,
-              minValue: 0,
-              maxValue: 100,
-              onChanged: (newvalue) {
-                pickerValue = newvalue;
-              },
-            ),
-            RaisedButton(
-              onPressed: () {
-                startTimer();
-              },
-              child: Text("start"),
-            ),
-            Text("$timerCurrDurationSec"),
-            CircularProgressIndicator(
-              value: timerInitial == 0
-                  ? 0
-                  : (timerInitial - timerCurrDurationSec) / timerInitial,
-              backgroundColor: Colors.cyan,
-            )
-          ],
-        ),
+        child: buildTimerScreenWidget(),
       ),
+    );
+  }
+
+  Column buildTimerScreenWidget() {
+    return Column(
+      children: <Widget>[
+        TextField(
+            controller: dateCtl,
+            decoration: InputDecoration(
+              labelText: "Date of visit",
+            ),
+            onTap: () async {
+              DateTime date = DateTime.parse(dateCtl.text);
+              FocusScope.of(context).requestFocus(new FocusNode());
+
+              date = await showDatePicker(
+                  context: context,
+                  initialDate: date,
+                  firstDate: DateTime.now(),
+                  lastDate: DateTime(2050));
+
+              if (date != null) dateCtl.text = date.toIso8601String();
+            }),
+        DateTimePicker(
+          type: DateTimePickerType.dateTime,
+          // initialValue: dateCtl.text,
+          controller: dateCtl,
+          dateLabelText: 'Date',
+          timeLabelText: "Hour",
+          firstDate: DateTime.now(),
+          lastDate: DateTime(2050),
+          // onChanged: (val) => dateCtl.text = val,
+        ),
+        RaisedButton(
+          onPressed: () {
+            if (!isTimerActive &&
+                DateTime.parse(dateCtl.text).isAfter(DateTime.now())) {
+              //If timer is not active and Date is in future
+              setState(() {
+                errorMessage = '';
+              });
+              isTimerActive = !isTimerActive;
+            }
+            //If Timer is active, stop
+            else if (isTimerActive)
+              isTimerActive = !isTimerActive;
+
+            //If Timer is not active and date is in past
+            else
+              setState(() {
+                errorMessage = dateInPastErrorMSG;
+              });
+          },
+          child: !isTimerActive ? Text("start") : Text("stop"),
+        ),
+        Text(errorMessage),
+        StreamBuilder(
+            stream: Stream.periodic(Duration(seconds: 1), (i) => i),
+            builder: (BuildContext context, AsyncSnapshot<int> snapshot) {
+              String dateString = '';
+              if (isTimerActive == true) {
+                DateFormat format = DateFormat("mm:ss");
+                int now = DateTime.now().millisecondsSinceEpoch;
+                int target =
+                    DateTime.parse(dateCtl.text).millisecondsSinceEpoch;
+                Duration remaining = Duration(milliseconds: target - now);
+                dateString =
+                    '${remaining.inHours}:${format.format(DateTime.fromMillisecondsSinceEpoch(remaining.inMilliseconds))}';
+                print(dateString);
+              } else
+                dateString = "00:00";
+
+              return Container(
+                color: Colors.greenAccent.withOpacity(0.3),
+                alignment: Alignment.center,
+                child: Text(dateString),
+              );
+            }),
+        SizedBox(
+          child: CircularProgressIndicator(
+            value: timerInitial == 0
+                ? 0
+                : (timerInitial - timerCurrDurationSec) / timerInitial,
+            backgroundColor: Colors.cyan,
+          ),
+          height: 100,
+          width: 100,
+        )
+      ],
     );
   }
 }
