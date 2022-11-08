@@ -65,6 +65,7 @@ class _MyHomePageState extends State<MyHomePage> {
   final dateInPastErrorMSG = "The Date and Time is in the past";
 
   TextEditingController dateCtl = TextEditingController();
+  TextEditingController currentDateTime = TextEditingController();
 
   @override
   void dispose() {
@@ -130,22 +131,11 @@ class _MyHomePageState extends State<MyHomePage> {
     return Column(
       children: <Widget>[
         TextField(
-            controller: dateCtl,
+            controller: currentDateTime,
             decoration: InputDecoration(
               labelText: "Date of visit",
             ),
-            onTap: () async {
-              DateTime date = DateTime.parse(dateCtl.text);
-              FocusScope.of(context).requestFocus(new FocusNode());
-
-              date = await showDatePicker(
-                  context: context,
-                  initialDate: date,
-                  firstDate: DateTime.now(),
-                  lastDate: DateTime(2050));
-
-              if (date != null) dateCtl.text = date.toIso8601String();
-            }),
+            onTap: () {}),
         DateTimePicker(
           type: DateTimePickerType.dateTime,
           // initialValue: dateCtl.text,
@@ -158,23 +148,23 @@ class _MyHomePageState extends State<MyHomePage> {
         ),
         RaisedButton(
           onPressed: () {
-            if (!isTimerActive &&
-                DateTime.parse(dateCtl.text).isAfter(DateTime.now())) {
-              //If timer is not active and Date is in future
-              setState(() {
-                errorMessage = '';
-              });
-              isTimerActive = !isTimerActive;
-            }
-            //If Timer is active, stop
-            else if (isTimerActive)
-              isTimerActive = !isTimerActive;
+            setState(() {
+              if (!isTimerActive &&
+                  DateTime.parse(dateCtl.text).isAfter(DateTime.now())) {
+                //If timer is not active and Date is in future
 
-            //If Timer is not active and date is in past
-            else
-              setState(() {
+                errorMessage = '';
+
+                isTimerActive = !isTimerActive;
+              }
+              //If Timer is active, stop
+              else if (isTimerActive)
+                isTimerActive = !isTimerActive;
+
+              //If Timer is not active and date is in past
+              else
                 errorMessage = dateInPastErrorMSG;
-              });
+            });
           },
           child: !isTimerActive ? Text("start") : Text("stop"),
         ),
@@ -184,33 +174,45 @@ class _MyHomePageState extends State<MyHomePage> {
             builder: (BuildContext context, AsyncSnapshot<int> snapshot) {
               String dateString = '';
               if (isTimerActive == true) {
-                DateFormat format = DateFormat("mm:ss");
+                DateFormat format = DateFormat("dd:hh:mm:ss");
                 int now = DateTime.now().millisecondsSinceEpoch;
                 int target =
                     DateTime.parse(dateCtl.text).millisecondsSinceEpoch;
                 Duration remaining = Duration(milliseconds: target - now);
                 dateString =
-                    '${remaining.inHours}:${format.format(DateTime.fromMillisecondsSinceEpoch(remaining.inMilliseconds))}';
+                    '${remaining.inDays}:${remaining.inHours.remainder(24)}' +
+                        ':${remaining.inMinutes.remainder(60)}:${remaining.inSeconds.remainder(60)}';
                 print(dateString);
               } else
-                dateString = "00:00";
+                dateString = "00:00:00";
 
-              return Container(
-                color: Colors.greenAccent.withOpacity(0.3),
-                alignment: Alignment.center,
-                child: Text(dateString),
+              return Column(
+                children: [
+                  SizedBox(
+                    height: 200,
+                    child: Stack(children: <Widget>[
+                      Center(
+                        child: Container(
+                          width: 200,
+                          height: 200,
+                          child: new CircularProgressIndicator(
+                            strokeWidth: 15,
+                            backgroundColor: Colors.cyan,
+                            value: timerInitial == 0
+                                ? 0
+                                : (timerInitial - timerCurrDurationSec) /
+                                    timerInitial,
+                          ),
+                        ),
+                      ),
+                      Center(
+                        child: Text(dateString),
+                      ),
+                    ]),
+                  ),
+                ],
               );
             }),
-        SizedBox(
-          child: CircularProgressIndicator(
-            value: timerInitial == 0
-                ? 0
-                : (timerInitial - timerCurrDurationSec) / timerInitial,
-            backgroundColor: Colors.cyan,
-          ),
-          height: 100,
-          width: 100,
-        )
       ],
     );
   }
